@@ -3,7 +3,9 @@ import { products } from "../data/products.js";
 // Mock AI analysis using simple heuristics
 export async function analyzeImage(file) {
   await new Promise((r) => setTimeout(r, 800));
-  const seed = file ? (file.size % 97) + 1 : Math.floor(Math.random() * 100) + 1;
+  const seed = file
+    ? (file.size % 97) + 1
+    : Math.floor(Math.random() * 100) + 1;
   const faceShapes = ["round", "oval", "square", "heart"];
   const skinTones = ["fair", "medium", "dark"];
   const face = faceShapes[seed % faceShapes.length];
