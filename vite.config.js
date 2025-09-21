@@ -1,7 +1,6 @@
-import { defineConfig, Plugin } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { createServer } from "./server";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -9,7 +8,12 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     fs: {
-      allow: ["./client", "./shared"],
+      allow: [
+        "./client", 
+        "./shared",
+        "./", // Add root directory to allow serving index.html
+        "./index.html" // Explicitly allow index.html
+      ],
       deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "server/**"],
     },
   },
@@ -25,15 +29,20 @@ export default defineConfig(({ mode }) => ({
   },
 }));
 
-function expressPlugin(): Plugin {
+function expressPlugin() {
   return {
     name: "express-plugin",
-    apply: "serve", // Only apply during development (serve mode)
+    apply: "serve",
     configureServer(server) {
-      const app = createServer();
-
-      // Add Express app as middleware to Vite dev server
-      server.middlewares.use(app);
+      // Use dynamic import to avoid loading Express in production
+      import("./server")
+        .then(({ createServer }) => {
+          const app = createServer();
+          server.middlewares.use(app);
+        })
+        .catch((error) => {
+          console.error("Failed to load Express server:", error);
+        });
     },
   };
 }
