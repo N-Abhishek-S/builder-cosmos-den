@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { Products } from './../products/Products';
+import { products as productsData } from '../data/products'; // Import the entire products object
 
 // Register GSAP plugins
 gsap.registerPlugin(ScrollTrigger);
@@ -12,6 +12,42 @@ const Homepage = () => {
   const ctaRef = useRef(null);
   const productRefs = useRef([]);
   const featureRefs = useRef([]);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+
+  useEffect(() => {
+    // Process products data to get featured products
+    const allProducts = [];
+    
+    // Process each gender category
+    Object.keys(productsData).forEach(gender => {
+      // Process each product type within the gender
+      Object.keys(productsData[gender]).forEach(productType => {
+        // Check if it's an array before processing
+        if (Array.isArray(productsData[gender][productType])) {
+          // Add each product with additional metadata
+          productsData[gender][productType].forEach(product => {
+            // Ensure price is a number and has a default value
+            const productPrice = typeof product.price === 'number' ? product.price : 
+                               (typeof product.price === 'string' ? parseFloat(product.price) : 0);
+            
+            allProducts.push({
+              ...product,
+              gender: gender,
+              productType: productType,
+              // Map properties to what the component expects
+              name: product.name || 'Product Name',
+              description: product.description || 'Product description',
+              price: productPrice // Ensure price is always a number
+            });
+          });
+        }
+      });
+    });
+
+    // Get a subset of products for featured section (max 6)
+    const featured = allProducts.slice(0, 6);
+    setFeaturedProducts(featured);
+  }, []);
 
   useEffect(() => {
     // Hero section animations
@@ -68,7 +104,7 @@ const Homepage = () => {
     return () => {
       ScrollTrigger.getAll().forEach(trigger => trigger.kill());
     };
-  }, []);
+  }, [featuredProducts]);
   
   const features = [
     {
@@ -143,9 +179,9 @@ const Homepage = () => {
           <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">Featured Products</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {Products.map((product, index) => (
+            {featuredProducts.map((product, index) => (
               <div 
-                key={product.id}
+                key={product.id || index}
                 ref={el => productRefs.current[index] = el}
                 className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 border border-gray-100"
               >
@@ -154,13 +190,19 @@ const Homepage = () => {
                     src={product.image} 
                     alt={product.name}
                     className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = `https://picsum.photos/seed/${product.id || index}/300/200.jpg`;
+                    }}
                   />
                 </div>
                 <div className="p-6">
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">{product.name}</h3>
                   <p className="text-gray-600 mb-4">{product.description}</p>
                   <div className="flex justify-between items-center">
-                    <span className="text-2xl font-bold text-indigo-600">{product.price}</span>
+                    <span className="text-2xl font-bold text-indigo-600">
+                      {typeof product.price === 'number' ? `$${product.price.toFixed(2)}` : '$0.00'}
+                    </span>
                     <button className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-lg font-medium transition-colors">
                       View Details
                     </button>

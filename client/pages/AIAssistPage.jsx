@@ -1,469 +1,417 @@
+import React, { useState, useRef } from 'react';
+import { gsap } from 'gsap';
+import AnalysisResult from '../pages/AnaliysisResult'; // Adjust path as needed
+
 const AIAssistPage = () => {
-    const [image, setImage] = useState(null);
-    const [preview, setPreview] = useState(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [loadingMessage, setLoadingMessage] = useState('');
-    const [analysisResult, setAnalysisResult] = useState(null);
-    const [error, setError] = useState(null);
-    const fileInputRef = useRef(null);
-    const resultsRef = useRef(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [uploadStatus, setUploadStatus] = useState('idle');
+  const [analysisData, setAnalysisData] = useState(null);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const uploaderRef = useRef(null);
+  const previewRef = useRef(null);
+  const statusRef = useRef(null);
 
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setImage(file);
-            setPreview(URL.createObjectURL(file));
-            setAnalysisResult(null);
-            setError(null);
+  const N8N_WEBHOOK_URL = 'https://n8n.srv1022996.hstgr.cloud/webhook/webhook/image-upload';
+
+  // GSAP animations
+  const animateUploader = () => {
+    if (uploaderRef.current) {
+      gsap.fromTo(uploaderRef.current, 
+        { y: 50, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" }
+      );
+    }
+  };
+
+  const animatePreview = () => {
+    if (previewRef.current) {
+      gsap.fromTo(previewRef.current,
+        { scale: 0.8, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.6, ease: "back.out(1.7)" }
+      );
+    }
+  };
+
+  const animateStatus = (isSuccess) => {
+    if (statusRef.current) {
+      gsap.fromTo(statusRef.current,
+        { y: -20, opacity: 0 },
+        { 
+          y: 0, 
+          opacity: 1, 
+          duration: 0.5,
+          color: isSuccess ? '#10b981' : '#ef4444',
+          ease: "power2.out"
         }
+      );
+    }
+  };
+
+  const handleImageChange = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('❌ Please select a valid image file (JPEG, PNG, etc.)');
+      animateStatus(false);
+      return;
+    }
+
+    // Validate file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('❌ File size must be less than 10MB');
+      animateStatus(false);
+      return;
+    }
+
+    setError('');
+    setSelectedImage(file);
+    setUploadStatus('idle');
+    setAnalysisData(null);
+    
+    // Create preview URL
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewUrl(objectUrl);
+
+    // Animate preview after a short delay
+    setTimeout(animatePreview, 100);
+  };
+
+  // Function to clean and parse JSON from potential markdown
+  const safeJsonParse = (text) => {
+    if (!text) return { message: 'Empty response' };
+
+    try {
+      // First, try to parse as pure JSON
+      return JSON.parse(text);
+    } catch (firstError) {
+      console.log('First parse attempt failed, cleaning text...');
+      
+      try {
+        // Remove markdown code blocks
+        let cleanedText = text
+          .replace(/```json\s*/g, '')  // Remove ```json
+          .replace(/```\s*/g, '')      // Remove ```
+          .replace(/`/g, '')           // Remove backticks
+          .trim();
+        
+        // Remove any extra text before or after JSON
+        const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          cleanedText = jsonMatch[0];
+        }
+        
+        return JSON.parse(cleanedText);
+      } catch (secondError) {
+        console.log('JSON parsing failed, returning raw text:', text);
+        return { 
+          rawResponse: text,
+          error: 'Response was not valid JSON',
+          cleanedText: text.replace(/`/g, '').trim()
+        };
+      }
+    }
+  };
+
+  const uploadImageToN8N = async () => {
+    if (!selectedImage) return;
+
+    setIsLoading(true);
+    setUploadStatus('uploading');
+    setError('');
+
+    const formData = new FormData();
+    formData.append('data', selectedImage);
+    formData.append('fileName', selectedImage.name);
+    formData.append('timestamp', new Date().toISOString());
+
+    try {
+      console.log('📤 Uploading image to n8n...');
+      
+      const response = await fetch(N8N_WEBHOOK_URL, {
+        method: 'POST',
+        body: formData,
+      });
+
+      console.log('📥 Response status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const responseText = await response.text();
+      console.log('📄 Raw response text:', responseText);
+
+      // Use safe JSON parsing
+      const result = safeJsonParse(responseText);
+      
+      // Add timestamp if not present
+      if (!result.timestamp) {
+        result.timestamp = new Date().toISOString();
+      }
+      
+      setUploadStatus('success');
+      setAnalysisData(result);
+      animateStatus(true);
+      console.log('✅ Processed response:', result);
+
+    } catch (err) {
+      console.error('❌ Upload error:', err);
+      setUploadStatus('error');
+      setError(err.message);
+      animateStatus(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedImage(null);
+    setPreviewUrl('');
+    setUploadStatus('idle');
+    setAnalysisData(null);
+    setError('');
+    setIsLoading(false);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.add('border-blue-500', 'bg-blue-50');
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-blue-500', 'bg-blue-50');
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.currentTarget.classList.remove('border-blue-500', 'bg-blue-50');
+    
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      // Create a synthetic event for the file input
+      const syntheticEvent = {
+        target: { files: [file] }
+      };
+      handleImageChange(syntheticEvent);
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  // Initialize animations on component mount
+  React.useEffect(() => {
+    animateUploader();
+    
+    // Cleanup object URLs on unmount
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
     };
+  }, []);
 
-    const handleAnalyze = async () => {
-        if (!image) {
-            setError("Please upload an image first.");
-            return;
-        }
-
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            setLoadingMessage("Analyzing your style...");
-
-            // Simulate API call with timeout
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Mock analysis result
-            const mockResult = {
-                confidence: 0.92,
-                faceShape: 'oval',
-                skinTone: 'medium',
-                recommendedColors: ['Navy Blue', 'Emerald Green', 'Burgundy', 'Soft Pink'],
-                accessories: ['Statement earrings', 'Delicate necklace', 'Cat-eye sunglasses'],
-                style_summary: "Your balanced features and warm undertones make you an ideal candidate for both classic and contemporary styles. We recommend focusing on pieces that highlight your facial structure while complementing your skin tone."
-            };
-
-            setAnalysisResult(mockResult);
-        } catch (err) {
-            setError("Analysis failed. Please try again.");
-            console.error(err);
-        } finally {
-            setIsLoading(false);
-            setLoadingMessage('');
-        }
-    };
-
-    useEffect(() => {
-        if (analysisResult && resultsRef.current) {
-            // Scroll to results when available
-            resultsRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
-    }, [analysisResult]);
-
-    const recommendedProducts = analysisResult
-        ? getRecommendedProducts(analysisResult)
-        : [];
-
-    return (
-        <div className="ai-assist-page">
-            <div className="container">
-                <div className="header">
-                    <h2>Your Personal AI Stylist</h2>
-                    <p>Upload a photo for instant analysis and personalized recommendations.</p>
-                </div>
-                
-                <div className="upload-section">
-                    <div className="upload-area" onClick={() => fileInputRef.current.click()}>
-                        <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/png, image/jpeg" />
-                        {preview ? (
-                            <img src={preview} alt="Preview" className="preview-image" />
-                        ) : (
-                            <div className="upload-placeholder">
-                                <FaUpload className="upload-icon" />
-                                <p>Click to upload</p>
-                            </div>
-                        )}
-                    </div>
-                    
-                    {error && <p className="error-message">{error}</p>}
-                    
-                    <button
-                        onClick={handleAnalyze}
-                        disabled={isLoading}
-                        className="analyze-btn"
-                    >
-                        {isLoading ? (
-                            <>
-                                <FaSpinner className="spinner" />
-                                {loadingMessage}
-                            </>
-                        ) : (
-                            'Get My Recommendations'
-                        )}
-                    </button>
-                </div>
-
-                {analysisResult && (
-                    <div ref={resultsRef} className="results-section">
-                        <div className="analysis-section">
-                            <h3>Your Style Analysis</h3>
-                            <AnalysisResult result={analysisResult} />
-                        </div>
-
-                        <div className="products-section">
-                            <h3>Recommended For You</h3>
-                            <div className="products-grid">
-                                {recommendedProducts.length > 0 ? (
-                                    recommendedProducts.map(p => <ProductCard key={p.id} product={p} />)
-                                ) : (
-                                    <p className="no-products">No specific products matched the analysis.</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-            
-            <style jsx>{`
-                .ai-assist-page {
-                    padding: 2rem 0;
-                    min-height: 100vh;
-                    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-                }
-                
-                .container {
-                    max-width: 1200px;
-                    margin: 0 auto;
-                    padding: 0 20px;
-                }
-                
-                .header {
-                    text-align: center;
-                    margin-bottom: 2rem;
-                }
-                
-                .header h2 {
-                    font-size: 2.5rem;
-                    color: #2D3748;
-                    margin-bottom: 0.5rem;
-                }
-                
-                .header p {
-                    font-size: 1.1rem;
-                    color: #718096;
-                    max-width: 600px;
-                    margin: 0 auto;
-                }
-                
-                .upload-section {
-                    background: white;
-                    border-radius: 12px;
-                    padding: 2rem;
-                    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-                    max-width: 800px;
-                    margin: 0 auto;
-                }
-                
-                .upload-area {
-                    border: 2px dashed #E2E8F0;
-                    border-radius: 8px;
-                    padding: 2rem;
-                    text-align: center;
-                    cursor: pointer;
-                    transition: border-color 0.3s;
-                }
-                
-                .upload-area:hover {
-                    border-color: #667EEA;
-                }
-                
-                .preview-image {
-                    max-width: 100%;
-                    max-height: 300px;
-                    border-radius: 8px;
-                }
-                
-                .upload-placeholder {
-                    color: #A0AEC0;
-                }
-                
-                .upload-icon {
-                    font-size: 3rem;
-                    margin-bottom: 1rem;
-                }
-                
-                .error-message {
-                    color: #E53E3E;
-                    text-align: center;
-                    margin-top: 1rem;
-                }
-                
-                .analyze-btn {
-                    width: 100%;
-                    background: #667EEA;
-                    color: white;
-                    border: none;
-                    border-radius: 8px;
-                    padding: 1rem;
-                    font-size: 1.1rem;
-                    font-weight: 600;
-                    margin-top: 1.5rem;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 0.5rem;
-                    transition: background 0.3s;
-                }
-                
-                .analyze-btn:hover:not(:disabled) {
-                    background: #5A67D8;
-                }
-                
-                .analyze-btn:disabled {
-                    background: #A0AEC0;
-                    cursor: not-allowed;
-                }
-                
-                .spinner {
-                    animation: spin 1s linear infinite;
-                }
-                
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-                
-                .results-section {
-                    margin-top: 3rem;
-                }
-                
-                .analysis-section, .products-section {
-                    background: white;
-                    border-radius: 12px;
-                    padding: 2rem;
-                    margin-bottom: 2rem;
-                    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-                }
-                
-                .analysis-section h3, .products-section h3 {
-                    font-size: 1.8rem;
-                    color: #2D3748;
-                    text-align: center;
-                    margin-bottom: 2rem;
-                }
-                
-                .result-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                    gap: 1.5rem;
-                    margin-bottom: 2rem;
-                }
-                
-                .result-card {
-                    background: #F7FAFC;
-                    border-radius: 8px;
-                    padding: 1.5rem;
-                    text-align: center;
-                }
-                
-                .result-card h4 {
-                    color: #718096;
-                    font-size: 0.9rem;
-                    text-transform: uppercase;
-                    letter-spacing: 0.05em;
-                    margin-bottom: 0.5rem;
-                }
-                
-                .result-value {
-                    color: #2D3748;
-                    font-size: 1.5rem;
-                    font-weight: 700;
-                }
-                
-                .recommendation-section {
-                    margin-bottom: 2rem;
-                }
-                
-                .recommendation-section h4 {
-                    color: #2D3748;
-                    margin-bottom: 1rem;
-                }
-                
-                .color-recommendations, .accessory-recommendations {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 0.5rem;
-                }
-                
-                .color-tag, .accessory-tag {
-                    background: #EBF4FF;
-                    color: #667EEA;
-                    padding: 0.5rem 1rem;
-                    border-radius: 20px;
-                    font-size: 0.9rem;
-                }
-                
-                .accessory-tag {
-                    background: #FAF5FF;
-                    color: #9F7AEA;
-                }
-                
-                .style-summary {
-                    line-height: 1.6;
-                    color: #4A5568;
-                }
-                
-                .products-grid {
-                    display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-                    gap: 1.5rem;
-                }
-                
-                .no-products {
-                    grid-column: 1 / -1;
-                    text-align: center;
-                    color: #718096;
-                    padding: 2rem;
-                }
-                
-                /* Product Card Styles */
-                .product-card {
-                    background: white;
-                    border-radius: 12px;
-                    overflow: hidden;
-                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-                    transition: transform 0.3s ease, box-shadow 0.3s ease;
-                }
-                
-                .product-card:hover {
-                    transform: translateY(-5px);
-                    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-                }
-                
-                .product-image {
-                    position: relative;
-                    height: 250px;
-                    overflow: hidden;
-                }
-                
-                .product-image img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                    transition: transform 0.5s ease;
-                }
-                
-                .product-card:hover .product-image img {
-                    transform: scale(1.05);
-                }
-                
-                .product-palette {
-                    position: absolute;
-                    bottom: 10px;
-                    right: 10px;
-                    display: flex;
-                    gap: 5px;
-                }
-                
-                .color-swatch {
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 50%;
-                    border: 2px solid white;
-                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-                }
-                
-                .product-info {
-                    padding: 1.5rem;
-                }
-                
-                .product-info h3 {
-                    font-size: 1.2rem;
-                    margin-bottom: 0.5rem;
-                    color: #2D3748;
-                }
-                
-                .product-meta {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 1rem;
-                }
-                
-                .product-style {
-                    background: #E2E8F0;
-                    color: #4A5568;
-                    padding: 0.25rem 0.5rem;
-                    border-radius: 4px;
-                    font-size: 0.8rem;
-                    text-transform: capitalize;
-                }
-                
-                .product-rating {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.25rem;
-                }
-                
-                .star {
-                    color: #E2E8F0;
-                    font-size: 0.9rem;
-                }
-                
-                .star.filled {
-                    color: #F6AD55;
-                }
-                
-                .rating-value {
-                    font-size: 0.9rem;
-                    color: #718096;
-                    margin-left: 0.25rem;
-                }
-                
-                .product-price {
-                    font-size: 1.4rem;
-                    font-weight: 700;
-                    color: #2D3748;
-                    margin-bottom: 1rem;
-                }
-                
-                .add-to-cart-btn {
-                    width: 100%;
-                    background: #4A5568;
-                    color: white;
-                    border: none;
-                    border-radius: 6px;
-                    padding: 0.75rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: background 0.3s ease;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 0.5rem;
-                }
-                
-                .add-to-cart-btn:hover {
-                    background: #2D3748;
-                }
-                
-                @media (max-width: 768px) {
-                    .header h2 {
-                        font-size: 2rem;
-                    }
-                    
-                    .result-grid {
-                        grid-template-columns: 1fr;
-                    }
-                    
-                    .products-grid {
-                        grid-template-columns: 1fr;
-                    }
-                }
-            `}</style>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100 py-8 px-4">
+      <div className="max-w-6xl mx-auto"> {/* Increased max-width */}
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-4">
+            🎭 AI Style Analyzer
+          </h1>
+          <p className="text-xl text-gray-600 mb-2">
+            Upload your photo for personalized style recommendations
+          </p>
+          <p className="text-lg text-gray-500">
+            Get insights about your face shape, skin tone, and perfect accessories
+          </p>
         </div>
-    );
+
+        {/* Upload Card */}
+        <div 
+          ref={uploaderRef}
+          className="bg-white rounded-3xl shadow-2xl p-8 mb-8 border-2 border-dashed border-gray-300 hover:border-purple-400 transition-all duration-300"
+        >
+          {!selectedImage ? (
+            // Upload Area
+            <div
+              className="text-center cursor-pointer py-16"
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+              onClick={() => document.getElementById('file-input').click()}
+            >
+              <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-purple-100 to-blue-100 rounded-full flex items-center justify-center">
+                <svg className="w-12 h-12 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-semibold text-gray-700 mb-3">
+                Drop your image here
+              </h3>
+              <p className="text-gray-500 mb-4 text-lg">
+                or click to browse files
+              </p>
+              <p className="text-sm text-gray-400">
+                Supports JPEG, PNG, WEBP, GIF • Max 10MB
+              </p>
+            </div>
+          ) : (
+            // Preview Area
+            <div ref={previewRef} className="text-center">
+              <div className="relative inline-block mb-8">
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="w-64 h-64 object-cover rounded-2xl shadow-2xl mx-auto border-4 border-white"
+                />
+                <button
+                  onClick={handleReset}
+                  className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-red-600 transition-all duration-200 shadow-lg hover:scale-110"
+                >
+                  ×
+                </button>
+              </div>
+              
+              <div className="space-y-3 bg-gray-50 rounded-xl p-4 max-w-md mx-auto">
+                <p className="text-xl font-semibold text-gray-800">
+                  {selectedImage.name}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {formatFileSize(selectedImage.size)} • {selectedImage.type}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <input
+            id="file-input"
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="hidden"
+          />
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div 
+            ref={statusRef}
+            className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-center font-medium"
+          >
+            {error}
+          </div>
+        )}
+
+        {/* Upload Button */}
+        {selectedImage && !analysisData && (
+          <div className="text-center space-y-4">
+            <button
+              onClick={uploadImageToN8N}
+              disabled={isLoading}
+              className={`
+                relative px-10 py-5 rounded-2xl font-bold text-lg transition-all duration-300 transform hover:scale-105
+                ${isLoading 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700'
+                }
+                text-white shadow-2xl hover:shadow-3xl
+              `}
+            >
+              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-6 w-6 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  🔍 Analyzing Your Style...
+                </span>
+              ) : (
+                '🚀 Analyze Face Features'
+              )}
+            </button>
+
+            <button
+              onClick={handleReset}
+              className="px-8 py-4 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-2xl font-semibold hover:from-red-600 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+            >
+              🗑️ Clear Selection
+            </button>
+          </div>
+        )}
+
+        {/* Status Messages */}
+        {uploadStatus === 'success' && (
+          <div 
+            ref={statusRef}
+            className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700 text-center font-medium"
+          >
+            ✅ Analysis completed successfully!
+          </div>
+        )}
+
+        {uploadStatus === 'error' && (
+          <div 
+            ref={statusRef}
+            className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-center font-medium"
+          >
+            ❌ Analysis failed. Please try again with a clearer photo.
+          </div>
+        )}
+
+        {/* Analysis Results - Using the AnalysisResult Component */}
+        {analysisData && !analysisData.error && (
+          <div className="mt-8 bg-white rounded-3xl shadow-2xl p-8">
+            <AnalysisResult result={analysisData} />
+            
+            {/* Reset button after analysis */}
+            <div className="text-center mt-8">
+              <button
+                onClick={handleReset}
+                className="px-8 py-4 bg-gradient-to-r from-purple-500 to-blue-600 text-white rounded-2xl font-semibold hover:from-purple-600 hover:to-blue-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              >
+                🔄 Analyze Another Image
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Debug Info - Only show if there's raw response data */}
+        {analysisData && analysisData.rawResponse && (
+          <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-2xl p-6">
+            <details className="cursor-pointer">
+              <summary className="font-semibold text-yellow-800 text-lg">
+                🔧 Debug Information (Raw Response)
+              </summary>
+              <div className="mt-4 bg-white p-4 rounded-lg overflow-auto text-sm text-gray-800 font-mono">
+                {analysisData.rawResponse}
+              </div>
+            </details>
+          </div>
+        )}
+
+        {/* Webhook Info */}
+        <div className="mt-12 text-center text-sm text-gray-500">
+          <p>Webhook URL: <code className="bg-gray-100 px-3 py-1 rounded-lg text-xs">{N8N_WEBHOOK_URL}</code></p>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default AIAssistPage;

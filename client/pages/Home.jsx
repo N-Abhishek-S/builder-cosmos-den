@@ -11,6 +11,7 @@ export default function Home() {
   const [progress, setProgress] = useState(0);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
   const { addToCart } = useCart();
 
   useEffect(() => {
@@ -28,10 +29,28 @@ export default function Home() {
 
   const onFile = (f) => {
     if (!f) return;
+    
+    // Validate file type
+    if (!f.type.startsWith('image/')) {
+      setError('Please upload an image file (JPEG, PNG, etc.)');
+      return;
+    }
+    
+    // Validate file size (5MB limit)
+    if (f.size > 5 * 1024 * 1024) {
+      setError('File size must be less than 5MB');
+      return;
+    }
+
     setFile(f);
+    setError(null);
+    setResult(null);
+    
     const reader = new FileReader();
     reader.onload = (e) => setPreview(e.target.result);
     reader.readAsDataURL(f);
+    
+    // Simulate upload progress
     setProgress(0);
     const tid = setInterval(() => {
       setProgress((p) => {
@@ -45,17 +64,41 @@ export default function Home() {
   };
 
   const handleAnalyze = async () => {
-    if (!file) return;
+    if (!file) {
+      setError('Please select an image first');
+      return;
+    }
+    
     setLoading(true);
-    const res = await analyzeImage(file);
-    setResult(res);
-    setLoading(false);
-    gsap.from(".result-card", {
-      y: 14,
-      opacity: 0,
-      stagger: 0.05,
-      duration: 0.5,
-    });
+    setError(null);
+    setResult(null);
+
+    try {
+      const res = await analyzeImage(file);
+      setResult(res);
+      
+      // Animate results
+      gsap.from(".result-card", {
+        y: 14,
+        opacity: 0,
+        stagger: 0.05,
+        duration: 0.5,
+      });
+      
+    } catch (err) {
+      console.error('Analysis error:', err);
+      setError(err.message || 'Analysis failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = () => {
+    setFile(null);
+    setPreview("");
+    setResult(null);
+    setProgress(0);
+    setError(null);
   };
 
   return (
@@ -100,6 +143,12 @@ export default function Home() {
             Face forward photo with good lighting works best.
           </p>
 
+          {error && (
+            <div className="mt-4 p-4 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+              <p className="text-red-600 dark:text-red-400 font-medium">{error}</p>
+            </div>
+          )}
+
           <label className="mt-5 block rounded-3xl border-2 border-dashed border-[hsl(var(--border))] bg-neutral-50 dark:bg-neutral-800/50 p-6 cursor-pointer hover:border-[hsl(var(--ring))] transition-colors">
             <input
               type="file"
@@ -122,28 +171,33 @@ export default function Home() {
               <div>
                 <p className="font-semibold">Drag & drop or click to upload</p>
                 <p className="text-sm opacity-70">JPG, PNG up to 5MB</p>
+                
+                {/* Progress bar */}
                 <div className="mt-3 h-3 rounded-full bg-neutral-200 dark:bg-neutral-800">
                   <div
                     className="h-3 rounded-full bg-[hsl(var(--primary))] transition-all"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                <div className="mt-4 flex gap-3">
+                
+                <div className="mt-4 flex gap-3 flex-wrap">
                   <button
                     onClick={handleAnalyze}
                     disabled={!file || loading}
-                    className="px-5 py-3 rounded-2xl font-extrabold bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] disabled:opacity-50"
+                    className="px-5 py-3 rounded-2xl font-extrabold bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] disabled:opacity-50 hover:shadow-lg transition-shadow"
                   >
-                    {loading ? "Analyzing..." : "Analyze with AI"}
+                    {loading ? (
+                      <span className="flex items-center gap-2">
+                        <span className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent"></span>
+                        Analyzing with AI...
+                      </span>
+                    ) : (
+                      "Analyze with AI"
+                    )}
                   </button>
                   <button
-                    onClick={() => {
-                      setFile(null);
-                      setPreview("");
-                      setResult(null);
-                      setProgress(0);
-                    }}
-                    className="px-5 py-3 rounded-2xl font-semibold bg-neutral-200 dark:bg-neutral-800"
+                    onClick={handleReset}
+                    className="px-5 py-3 rounded-2xl font-semibold bg-neutral-200 dark:bg-neutral-800 hover:bg-neutral-300 dark:hover:bg-neutral-700 transition-colors"
                   >
                     Reset
                   </button>
@@ -155,11 +209,20 @@ export default function Home() {
 
         <div className="rounded-3xl p-6 border border-[hsl(var(--border))] bg-white dark:bg-neutral-900">
           <h2 className="text-2xl font-extrabold">Your analysis</h2>
-          {!result && (
+          
+          {loading && (
+            <div className="mt-4 p-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-[hsl(var(--primary))] border-t-transparent mx-auto mb-4"></div>
+              <p className="opacity-70">AI is analyzing your image...</p>
+            </div>
+          )}
+          
+          {!result && !loading && (
             <p className="opacity-70">
-              Run an analysis to see personalized insights.
+              {file ? 'Click "Analyze with AI" to see your results' : 'Upload a photo to get started'}
             </p>
           )}
+          
           {result && (
             <div className="mt-4 grid sm:grid-cols-2 gap-4">
               <div className="result-card rounded-2xl p-4 bg-neutral-50 dark:bg-neutral-800/50">
@@ -177,7 +240,7 @@ export default function Home() {
               <div className="result-card rounded-2xl p-4 bg-neutral-50 dark:bg-neutral-800/50">
                 <p className="text-sm opacity-70">Recommended colors</p>
                 <div className="mt-2 flex gap-2">
-                  {result.palettes.map((hex) => (
+                  {result.palettes?.map((hex) => (
                     <span
                       key={hex}
                       className="size-7 rounded-xl border"
@@ -190,7 +253,7 @@ export default function Home() {
               <div className="result-card rounded-2xl p-4 bg-neutral-50 dark:bg-neutral-800/50">
                 <p className="text-sm opacity-70">Sunglasses styles</p>
                 <p className="text-lg font-bold capitalize">
-                  {result.sunglassesStyles.join(", ")}
+                  {result.sunglassesStyles?.join(", ") || "Not available"}
                 </p>
               </div>
             </div>
@@ -198,67 +261,25 @@ export default function Home() {
         </div>
       </section>
 
-      {result && (
+      {result && result.recommendations && (
         <section className="space-y-6">
           <h2 className="text-2xl font-extrabold">Top sunglasses for you</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {result.recommendations.sunglasses.map((p) => (
+            {result.recommendations.sunglasses?.map((p) => (
               <ProductCard key={p.id} product={p} onAdd={() => addToCart(p)} />
             ))}
           </div>
+          
           <h2 className="text-2xl font-extrabold mt-10">
             Outfits that match your palette
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {result.recommendations.outfits.map((p) => (
+            {result.recommendations.outfits?.map((p) => (
               <ProductCard key={p.id} product={p} onAdd={() => addToCart(p)} />
             ))}
           </div>
         </section>
       )}
-    </div>
-  );
-}
-
-function ProductCard({ product, onAdd }) {
-  const cardRef = useRef(null);
-  useEffect(() => {
-    const el = cardRef.current;
-    const ctx = gsap.context(() => {
-      gsap.set(el, { y: 0 });
-    }, el);
-    return () => ctx.revert();
-  }, []);
-  return (
-    <div
-      ref={cardRef}
-      className="group rounded-3xl overflow-hidden border border-[hsl(var(--border))] bg-white dark:bg-neutral-900 hover:shadow-lg transition-shadow"
-    >
-      <div className="relative aspect-square overflow-hidden">
-        <img
-          src={product.image}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-500"
-        />
-        <div className="absolute left-3 top-3 px-3 py-1 rounded-xl text-xs font-bold bg-white/80 backdrop-blur border">
-          {product.style || product.type}
-        </div>
-      </div>
-      <div className="p-4">
-        <div className="flex items-center justify-between">
-          <p className="font-semibold leading-tight pr-2 line-clamp-1">
-            {product.name}
-          </p>
-          <span className="font-extrabold">${product.price.toFixed(2)}</span>
-        </div>
-        <p className="text-sm opacity-70">⭐ {product.rating.toFixed(1)}</p>
-        <button
-          onClick={onAdd}
-          className="mt-3 w-full px-4 py-3 rounded-2xl font-extrabold bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]"
-        >
-          Add to cart
-        </button>
-      </div>
     </div>
   );
 }

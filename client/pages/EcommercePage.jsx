@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { Products } from './../products/Products';
+import { products as productsData } from '../data/products'; // Import the entire products object
+
 // Register GSAP plugin
 gsap.registerPlugin(ScrollTrigger);
 
@@ -12,7 +13,7 @@ const EcommercePage = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('featured');
   const [isLoading, setIsLoading] = useState(true);
-
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Refs for animations
   const headerRef = useRef(null);
@@ -21,15 +22,51 @@ const EcommercePage = () => {
   const categoryRefs = useRef([]);
   const sectionTitleRef = useRef(null);
 
-  // Mock API data - in a real app, you would fetch from Flipkart/Amazon API
+  // Process and set products data
   useEffect(() => {
     // Simulate API call
     setTimeout(() => {
+      // Flatten all products from all categories
+      const allProducts = [];
+      let idCounter = 1; // Counter to ensure unique IDs
       
+      // Process each gender category
+      Object.keys(productsData).forEach(gender => {
+        // Process each product type within the gender
+        Object.keys(productsData[gender]).forEach(productType => {
+          // Check if it's an array before processing
+          if (Array.isArray(productsData[gender][productType])) {
+            // Add each product with additional metadata
+            productsData[gender][productType].forEach(product => {
+              // Ensure price is a number and has a default value
+              const productPrice = typeof product.price === 'number' ? product.price : 
+                                 (typeof product.price === 'string' ? parseFloat(product.price) : 0);
+              
+              allProducts.push({
+                ...product,
+                // Create a unique ID combining original ID, gender, and product type
+                uniqueId: `${gender}-${productType}-${product.id || idCounter++}`,
+                gender: gender,
+                productType: productType,
+                // Map properties to what the component expects
+                title: product.name || 'Product Name',
+                category: productType, // Use product type as category
+                rating: product.rating || 4.5,
+                reviewCount: product.reviewCount || Math.floor(Math.random() * 100) + 1,
+                discount: product.discount || (Math.random() > 0.7 ? Math.floor(Math.random() * 30) + 10 : null),
+                originalPrice: product.originalPrice || productPrice * 1.2,
+                price: productPrice // Ensure price is always a number
+              });
+            });
+          }
+        });
+      });
 
-      const uniqueCategories = ['all', ...new Set(Products.map(product => product.category))];
-      setProducts(Products);
-      setFilteredProducts(Products);
+      // Get unique categories (product types)
+      const uniqueCategories = ['all', ...new Set(allProducts.map(product => product.category))];
+      
+      setProducts(allProducts);
+      setFilteredProducts(allProducts);
       setCategories(uniqueCategories);
       setIsLoading(false);
     }, 1500);
@@ -156,8 +193,9 @@ const EcommercePage = () => {
     } else {
       setFilteredProducts(
         products.filter(product => 
-          product.title.toLowerCase().includes(query) ||
-          product.category.toLowerCase().includes(query)
+          (product.title && product.title.toLowerCase().includes(query)) ||
+          product.category.toLowerCase().includes(query) ||
+          (product.description && product.description.toLowerCase().includes(query))
         )
       );
     }
@@ -165,7 +203,50 @@ const EcommercePage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
-  
+      {/* Header */}
+      <header ref={headerRef} className="bg-white shadow-sm sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center">
+          <div className="flex items-center mb-4 md:mb-0">
+            <h1 className="text-2xl font-bold text-blue-600">ShopEasy</h1>
+          </div>
+          
+          <div className="w-full md:w-1/3 mb-4 md:mb-0">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search products..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={searchQuery}
+                onChange={handleSearch}
+              />
+              <button className="absolute right-3 top-2.5 text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <button className="text-gray-600 hover:text-blue-600">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+            </button>
+            <button className="text-gray-600 hover:text-blue-600 relative">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
+            </button>
+            <button className="text-gray-600 hover:text-blue-600">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </header>
 
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-16 md:py-24">
@@ -228,7 +309,7 @@ const EcommercePage = () => {
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {[...Array(8)].map((_, index) => (
-                <div key={index} className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse">
+                <div key={`loading-${index}`} className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse">
                   <div className="h-48 bg-gray-300"></div>
                   <div className="p-4">
                     <div className="h-4 bg-gray-300 rounded mb-2"></div>
@@ -250,7 +331,7 @@ const EcommercePage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {filteredProducts.map((product, index) => (
                 <div 
-                  key={product.id}
+                  key={product.uniqueId} // Use the uniqueId instead of id
                   ref={el => productRefs.current[index] = el}
                   className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                 >
@@ -260,6 +341,10 @@ const EcommercePage = () => {
                         src={product.image} 
                         alt={product.title}
                         className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          e.target.onerror = null;
+                          e.target.src = `https://picsum.photos/seed/${product.uniqueId}/300/200.jpg`;
+                        }}
                       />
                     </div>
                     {product.discount && (
@@ -291,9 +376,14 @@ const EcommercePage = () => {
                     </div>
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="text-lg font-bold text-gray-800">${product.price.toFixed(2)}</p>
+                        {/* Add check for price before calling toFixed */}
+                        <p className="text-lg font-bold text-gray-800">
+                          ${typeof product.price === 'number' ? product.price.toFixed(2) : '0.00'}
+                        </p>
                         {product.originalPrice && (
-                          <p className="text-xs text-gray-500 line-through">${product.originalPrice.toFixed(2)}</p>
+                          <p className="text-xs text-gray-500 line-through">
+                            ${typeof product.originalPrice === 'number' ? product.originalPrice.toFixed(2) : '0.00'}
+                          </p>
                         )}
                       </div>
                       <button className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center">
@@ -328,9 +418,6 @@ const EcommercePage = () => {
           </div>
         </div>
       </section>
-
-    
-      
     </div>
   );
 };
