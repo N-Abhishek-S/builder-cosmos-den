@@ -1,4 +1,3 @@
-// src/components/AnalysisResult.js
 import React, { useEffect, useRef, useState } from 'react';
 import { FaVenus, FaMars, FaGenderless, FaPalette, FaGlasses, FaStar, FaShoppingBag } from 'react-icons/fa';
 import { gsap } from 'gsap';
@@ -10,16 +9,63 @@ const AnalysisResult = ({ result }) => {
   const cardsRef = useRef([]);
   const productsRef = useRef([]);
   const [recommendedProducts, setRecommendedProducts] = useState(null);
+  const [error, setError] = useState(null);
+  const [debugInfo, setDebugInfo] = useState({});
+
+  // Debug function to log product data
+  const logProductData = (products, category) => {
+    if (!products || products.length === 0) return;
+    
+    console.log(`=== ${category} Products ===`);
+    products.forEach((product, index) => {
+      console.log(`${category} #${index}:`, {
+        id: product.id,
+        name: product.name,
+        image: product.image,
+        category: product.category,
+        price: product.price,
+        gender: product.gender
+      });
+    });
+  };
 
   useEffect(() => {
     if (result) {
-      const products = getRecommendedProducts(result);
-      setRecommendedProducts(products);
+      try {
+        console.log("Analysis result:", result);
+        const products = getRecommendedProducts(result);
+        console.log("Recommended products:", products);
+        
+        // Log each product category for debugging
+        Object.keys(products).forEach(category => {
+          if (products[category] && products[category].length > 0) {
+            logProductData(products[category], category);
+          }
+        });
+        
+        setRecommendedProducts(products);
+        setError(null);
+        
+        // Set debug info
+        setDebugInfo({
+          faceShape: result.face_shape,
+          gender: result.gender,
+          skinTone: result.skin_tone,
+          productCounts: Object.keys(products).reduce((acc, key) => {
+            acc[key] = products[key] ? products[key].length : 0;
+            return acc;
+          }, {})
+        });
+      } catch (err) {
+        console.error('Error getting recommended products:', err);
+        setError('Failed to load product recommendations');
+        setRecommendedProducts(getFallbackProducts(result?.gender));
+      }
     }
   }, [result]);
 
   useEffect(() => {
-    if (resultRef.current && recommendedProducts) {
+    if (resultRef.current && recommendedProducts && !error) {
       // Animate the entire result container
       gsap.fromTo(resultRef.current, 
         { opacity: 0, y: 20 },
@@ -54,7 +100,7 @@ const AnalysisResult = ({ result }) => {
         );
       }
     }
-  }, [result, recommendedProducts]);
+  }, [result, recommendedProducts, error]);
 
   // Gender icon mapping
   const getGenderIcon = (gender) => {
@@ -78,7 +124,62 @@ const AnalysisResult = ({ result }) => {
     return emojiMap[shape?.toLowerCase()] || '👤';
   };
 
-  if (!result || !recommendedProducts) {
+  // Simple fallback products
+  const getFallbackProducts = (gender) => {
+    return {
+      sunglasses: [],
+      clothing: [],
+      accessories: [],
+      watches: [],
+      footwear: [],
+      hairstyles: []
+    };
+  };
+
+  // Function to fix image URLs
+  const fixImageUrl = (url) => {
+    if (!url) return null;
+    
+    // Fix common URL issues
+    let fixedUrl = url;
+    
+    // Fix hhttps issue
+    if (fixedUrl.startsWith('hhttps')) {
+      fixedUrl = fixedUrl.replace('hhttps', 'https');
+    }
+    
+    // Fix double slashes
+    fixedUrl = fixedUrl.replace(/([^:]\/)\/+/g, '$1');
+    
+    return fixedUrl;
+  };
+
+  if (!result) {
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Loading analysis results...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-md mx-auto">
+          <p className="text-red-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!recommendedProducts) {
     return (
       <div className="text-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
@@ -89,6 +190,20 @@ const AnalysisResult = ({ result }) => {
 
   return (
     <div ref={resultRef} className="analysis-result space-y-6">
+      {/* Debug Info Panel - Remove in production */}
+      <div className="bg-gray-800 text-white p-4 rounded-lg mb-6">
+        <h3 className="font-bold mb-2">Debug Information</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+          <div>Face Shape: {debugInfo.faceShape || 'N/A'}</div>
+          <div>Gender: {debugInfo.gender || 'N/A'}</div>
+          <div>Skin Tone: {debugInfo.skinTone || 'N/A'}</div>
+          <div>Total Products: {Object.values(debugInfo.productCounts || {}).reduce((a, b) => a + b, 0)}</div>
+        </div>
+        <div className="mt-2 text-sm">
+          Product Counts: {JSON.stringify(debugInfo.productCounts)}
+        </div>
+      </div>
+
       {/* Header */}
       <div className="text-center mb-8">
         <h2 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-3">
@@ -193,9 +308,27 @@ const AnalysisResult = ({ result }) => {
           </div>
         )}
 
+        {/* Sunglasses Recommendations */}
+        {result.recommended_sunglasses && (
+          <div 
+            ref={el => cardsRef.current[5] = el}
+            className="recommendation-section bg-white p-6 rounded-2xl border border-gray-200 shadow-sm"
+          >
+            <div className="flex items-center mb-4">
+              <FaGlasses className="text-2xl text-blue-500 mr-3" />
+              <h4 className="text-xl font-semibold text-gray-800">Recommended Sunglasses</h4>
+            </div>
+            <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-5 rounded-xl border border-blue-200">
+              <p className="text-gray-700 leading-relaxed text-lg">
+                {result.recommended_sunglasses}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Style Tips based on face shape */}
         <div 
-          ref={el => cardsRef.current[5] = el}
+          ref={el => cardsRef.current[6] = el}
           className="recommendation-section bg-white p-6 rounded-2xl border border-gray-200 shadow-sm"
         >
           <h4 className="text-xl font-semibold text-gray-800 mb-4">Style Tips</h4>
@@ -229,22 +362,34 @@ const AnalysisResult = ({ result }) => {
         </div>
 
         {/* Sunglasses */}
-        {recommendedProducts.sunglasses.length > 0 && (
+        {recommendedProducts.sunglasses && recommendedProducts.sunglasses.length > 0 && (
           <div ref={el => productsRef.current[0] = el} className="mb-12">
             <div className="flex items-center mb-6">
               <FaGlasses className="text-2xl text-blue-500 mr-3" />
               <h4 className="text-2xl font-bold text-gray-800">Sunglasses for {result.face_shape} Face Shape</h4>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {recommendedProducts.sunglasses.map((product, index) => (
-                <ProductCard key={`sunglasses-${product.id}`} product={product} index={index} />
-              ))}
+              {recommendedProducts.sunglasses.map((product, index) => {
+                // Fix image URL
+                const fixedProduct = {
+                  ...product,
+                  image: fixImageUrl(product.image)
+                };
+                
+                return (
+                  <ProductCard 
+                    key={`sunglasses-${product.id || index}-${product.name || ''}-${index}`} 
+                    product={fixedProduct} 
+                    index={index} 
+                  />
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Clothing */}
-        {recommendedProducts.clothing.length > 0 && (
+        {recommendedProducts.clothing && recommendedProducts.clothing.length > 0 && (
           <div ref={el => productsRef.current[1] = el} className="mb-12">
             <div className="flex items-center mb-6">
               <FaShoppingBag className="text-2xl text-purple-500 mr-3" />
@@ -253,15 +398,26 @@ const AnalysisResult = ({ result }) => {
               </h4>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {recommendedProducts.clothing.map((product, index) => (
-                <ProductCard key={`clothing-${product.id}`} product={product} index={index} />
-              ))}
+              {recommendedProducts.clothing.map((product, index) => {
+                const fixedProduct = {
+                  ...product,
+                  image: fixImageUrl(product.image)
+                };
+                
+                return (
+                  <ProductCard 
+                    key={`clothing-${product.id || index}-${product.name || ''}-${index}`} 
+                    product={fixedProduct} 
+                    index={index} 
+                  />
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Accessories */}
-        {recommendedProducts.accessories.length > 0 && (
+        {recommendedProducts.accessories && recommendedProducts.accessories.length > 0 && (
           <div ref={el => productsRef.current[2] = el} className="mb-12">
             <div className="flex items-center mb-6">
               <FaStar className="text-2xl text-yellow-500 mr-3" />
@@ -270,15 +426,26 @@ const AnalysisResult = ({ result }) => {
               </h4>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {recommendedProducts.accessories.map((product, index) => (
-                <ProductCard key={`accessories-${product.id}`} product={product} index={index} />
-              ))}
+              {recommendedProducts.accessories.map((product, index) => {
+                const fixedProduct = {
+                  ...product,
+                  image: fixImageUrl(product.image)
+                };
+                
+                return (
+                  <ProductCard 
+                    key={`accessories-${product.id || index}-${product.name || ''}-${index}`} 
+                    product={fixedProduct} 
+                    index={index} 
+                  />
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Watches */}
-        {recommendedProducts.watches.length > 0 && (
+        {recommendedProducts.watches && recommendedProducts.watches.length > 0 && (
           <div ref={el => productsRef.current[3] = el} className="mb-12">
             <div className="flex items-center mb-6">
               <FaStar className="text-2xl text-green-500 mr-3" />
@@ -287,15 +454,26 @@ const AnalysisResult = ({ result }) => {
               </h4>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {recommendedProducts.watches.map((product, index) => (
-                <ProductCard key={`watches-${product.id}`} product={product} index={index} />
-              ))}
+              {recommendedProducts.watches.map((product, index) => {
+                const fixedProduct = {
+                  ...product,
+                  image: fixImageUrl(product.image)
+                };
+                
+                return (
+                  <ProductCard 
+                    key={`watches-${product.id || index}-${product.name || ''}-${index}`} 
+                    product={fixedProduct} 
+                    index={index} 
+                  />
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Footwear */}
-        {recommendedProducts.footwear.length > 0 && (
+        {recommendedProducts.footwear && recommendedProducts.footwear.length > 0 && (
           <div ref={el => productsRef.current[4] = el} className="mb-12">
             <div className="flex items-center mb-6">
               <FaShoppingBag className="text-2xl text-red-500 mr-3" />
@@ -304,15 +482,26 @@ const AnalysisResult = ({ result }) => {
               </h4>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {recommendedProducts.footwear.map((product, index) => (
-                <ProductCard key={`footwear-${product.id}`} product={product} index={index} />
-              ))}
+              {recommendedProducts.footwear.map((product, index) => {
+                const fixedProduct = {
+                  ...product,
+                  image: fixImageUrl(product.image)
+                };
+                
+                return (
+                  <ProductCard 
+                    key={`footwear-${product.id || index}-${product.name || ''}-${index}`} 
+                    product={fixedProduct} 
+                    index={index} 
+                  />
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Hairstyles */}
-        {recommendedProducts.hairstyles.length > 0 && (
+        {recommendedProducts.hairstyles && recommendedProducts.hairstyles.length > 0 && (
           <div ref={el => productsRef.current[5] = el} className="mb-12">
             <div className="flex items-center mb-6">
               <FaStar className="text-2xl text-pink-500 mr-3" />
@@ -321,19 +510,30 @@ const AnalysisResult = ({ result }) => {
               </h4>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {recommendedProducts.hairstyles.map((product, index) => (
-                <ProductCard key={`hairstyles-${product.id}`} product={product} index={index} />
-              ))}
+              {recommendedProducts.hairstyles.map((product, index) => {
+                const fixedProduct = {
+                  ...product,
+                  image: fixImageUrl(product.image)
+                };
+                
+                return (
+                  <ProductCard 
+                    key={`hairstyles-${product.id || index}-${product.name || ''}-${index}`} 
+                    product={fixedProduct} 
+                    index={index} 
+                  />
+                );
+              })}
             </div>
           </div>
         )}
       </div>
 
       {/* No Products Message */}
-      {Object.values(recommendedProducts).every(arr => arr.length === 0) && (
+      {recommendedProducts && Object.values(recommendedProducts).every(arr => !arr || arr.length === 0) && (
         <div className="text-center py-12 bg-gray-50 rounded-2xl">
           <p className="text-gray-500 text-lg">
-            No specific recommendations available. Try uploading a clearer image or check back later.
+            No specific recommendations available for your profile. Try different search criteria or check back later.
           </p>
         </div>
       )}

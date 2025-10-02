@@ -1,425 +1,437 @@
-import React, { useEffect, useRef, useState } from 'react';
+// ShoP_MainFun.jsx
+import React, { useState, useEffect } from 'react';
 import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { products as productsData } from '../data/products'; // Import the entire products object
+import ProductCard from './ProductCard'; // Import the ProductCard component
 
-// Register GSAP plugin
-gsap.registerPlugin(ScrollTrigger);
+// Enhanced filter options that match your product data structure
+const filterOptions = {
+  All: {
+    gender: ["Male", "Female", "Unisex"],
+    category: ["Footwear", "Clothing", "Watches", "Accessories", "Sunglasses", "Hairstyle"]
+  },
+  Sunglasses: {
+    faceShape: ["Round Face", "Oval Face", "Square Face", "Heart Face", "Diamond Face"],
+    frameType: ["Metal", "Acetate", "Plastic", "Mixed"],
+    lensColor: ["Black", "Grey", "Brown", "Green", "Blue", "Mirrored"],
+    size: ["Small", "Medium", "Large"],
+    gender: ["Male", "Female", "Unisex"],
+    brand: ["Ray-Ban", "Oakley", "Gucci", "Prada", "Versace"]
+  },
+  Fashion: {
+    style: ["Formal", "Informal", "Casual", "Traditional"],
+    occasion: ["Work", "Party", "Wedding", "Beach", "Everyday"],
+    size: ["XS", "Small", "Medium", "Large", "XL"],
+    gender: ["Male", "Female", "Unisex"],
+    material: ["Cotton", "Polyester", "Linen", "Denim", "Wool"]
+  },
+  Footwear: {
+    style: ["Formal", "Informal", "Casual", "Traditional"],
+    category: ["Formal", "Informal", "Casual", "Traditional"],
+    size: ["Small", "Medium", "Large"],
+    gender: ["Male", "Female", "Unisex"]
+  }
+};
 
-const EcommercePage = () => {
-  const [products, setProducts] = useState([]);
+const ShoP_MainFun = () => {
+  // State management
+  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [filters, setFilters] = useState({});
   const [filteredProducts, setFilteredProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [sortBy, setSortBy] = useState('featured');
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [animationReady, setAnimationReady] = useState(false);
+  const [sampleProducts, setSampleProducts] = useState([]);
+  const [rawProducts, setRawProducts] = useState(null);
 
-  // Refs for animations
-  const headerRef = useRef(null);
-  const heroRef = useRef(null);
-  const productRefs = useRef([]);
-  const categoryRefs = useRef([]);
-  const sectionTitleRef = useRef(null);
-
-  // Process and set products data
-  useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      // Flatten all products from all categories
-      const allProducts = [];
-      let idCounter = 1; // Counter to ensure unique IDs
-      
-      // Process each gender category
-      Object.keys(productsData).forEach(gender => {
-        // Process each product type within the gender
-        Object.keys(productsData[gender]).forEach(productType => {
-          // Check if it's an array before processing
-          if (Array.isArray(productsData[gender][productType])) {
-            // Add each product with additional metadata
-            productsData[gender][productType].forEach(product => {
-              // Ensure price is a number and has a default value
-              const productPrice = typeof product.price === 'number' ? product.price : 
-                                 (typeof product.price === 'string' ? parseFloat(product.price) : 0);
+  // Function to flatten the nested product structure with proper field mapping
+  const flattenProducts = (productsData) => {
+    if (Array.isArray(productsData)) {
+      return productsData;
+    }
+    
+    const flattened = [];
+    
+    // Process each gender category
+    ['male', 'female', 'unisex'].forEach(gender => {
+      if (productsData[gender]) {
+        Object.entries(productsData[gender]).forEach(([productType, productsArray]) => {
+          if (Array.isArray(productsArray)) {
+            productsArray.forEach(product => {
+              // Fix malformed image URLs
+              const fixedImage = product.image ? product.image.replace(/^hhttps/, 'https') : '';
               
-              allProducts.push({
+              // Normalize product data for consistent filtering
+              const normalizedProduct = {
                 ...product,
-                // Create a unique ID combining original ID, gender, and product type
-                uniqueId: `${gender}-${productType}-${product.id || idCounter++}`,
-                gender: gender,
+                uniqueKey: `${gender}-${productType}-${product.id || Math.random().toString(36).substr(2, 9)}`,
+                gender: gender.charAt(0).toUpperCase() + gender.slice(1), // Capitalize
                 productType: productType,
-                // Map properties to what the component expects
-                title: product.name || 'Product Name',
-                category: productType, // Use product type as category
-                rating: product.rating || 4.5,
-                reviewCount: product.reviewCount || Math.floor(Math.random() * 100) + 1,
-                discount: product.discount || (Math.random() > 0.7 ? Math.floor(Math.random() * 30) + 10 : null),
-                originalPrice: product.originalPrice || productPrice * 1.2,
-                price: productPrice // Ensure price is always a number
-              });
+                // Map category based on product type
+                category: mapProductTypeToCategory(productType),
+                // Ensure all filterable fields exist with defaults
+                style: product.style || product.category || 'Casual',
+                size: product.size || 'Medium',
+                brand: product.brand || 'Generic',
+                // Add fields that might be missing
+                faceShape: product.faceShape || null,
+                frameType: product.frameType || null,
+                lensColor: product.lensColor || null,
+                occasion: product.occasion || null,
+                material: product.material || null,
+                // Use the fixed image URL
+                image: fixedImage || `https://picsum.photos/seed/${gender}-${productType}-${product.id || 'default'}/300/200.jpg`
+              };
+              flattened.push(normalizedProduct);
             });
           }
         });
-      });
-
-      // Get unique categories (product types)
-      const uniqueCategories = ['all', ...new Set(allProducts.map(product => product.category))];
-      
-      setProducts(allProducts);
-      setFilteredProducts(allProducts);
-      setCategories(uniqueCategories);
-      setIsLoading(false);
-    }, 1500);
-  }, []);
-
-  // Initialize animations
-  useEffect(() => {
-    if (isLoading) return;
-
-    // Header animation
-    gsap.fromTo(headerRef.current,
-      { y: -100, opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.8, ease: "power3.out" }
-    );
-
-    // Hero section animation
-    gsap.fromTo(heroRef.current,
-      { opacity: 0, y: 50 },
-      { opacity: 1, y: 0, duration: 1, delay: 0.3, ease: "power3.out" }
-    );
-
-    // Category buttons animation
-    gsap.fromTo(categoryRefs.current,
-      { opacity: 0, y: 20 },
-      {
-        opacity: 1,
-        y: 0,
-        duration: 0.5,
-        stagger: 0.1,
-        scrollTrigger: {
-          trigger: '.categories-section',
-          start: "top 80%",
-          toggleActions: "play none none reverse"
-        }
-      }
-    );
-
-    // Section title animation
-    gsap.fromTo(sectionTitleRef.current,
-      { opacity: 0, x: -30 },
-      {
-        opacity: 1,
-        x: 0,
-        duration: 0.7,
-        scrollTrigger: {
-          trigger: sectionTitleRef.current,
-          start: "top 85%",
-          toggleActions: "play none none reverse"
-        }
-      }
-    );
-
-    // Product cards animation
-    productRefs.current.forEach((card, index) => {
-      if (card) {
-        gsap.fromTo(card,
-          { opacity: 0, y: 30 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.6,
-            scrollTrigger: {
-              trigger: card,
-              start: "top 85%",
-              toggleActions: "play none none reverse"
-            },
-            delay: index * 0.1
-          }
-        );
       }
     });
+    
+    return flattened;
+  };
 
-    return () => {
-      ScrollTrigger.getAll().forEach(trigger => trigger.kill());
+  // Helper function to map product types to categories
+  const mapProductTypeToCategory = (productType) => {
+    const categoryMap = {
+      'Footwear': 'Footwear',
+      'clothing': 'Clothing',
+      'Watches': 'Watches',
+      'accessories': 'Accessories',
+      'sunglasses': 'Sunglasses',
+      'Hairstyle': 'Hairstyle'
     };
-  }, [isLoading, filteredProducts]);
-
-  // Handle category filter
-  const handleCategoryFilter = (category) => {
-    setSelectedCategory(category);
-    if (category === 'all') {
-      setFilteredProducts(products);
-    } else {
-      setFilteredProducts(products.filter(product => product.category === category));
-    }
+    return categoryMap[productType] || productType;
   };
 
-  // Handle sort change
-  const handleSortChange = (e) => {
-    const sortValue = e.target.value;
-    setSortBy(sortValue);
-    
-    let sortedProducts = [...filteredProducts];
-    
-    switch(sortValue) {
-      case 'price-low':
-        sortedProducts.sort((a, b) => a.price - b.price);
-        break;
-      case 'price-high':
-        sortedProducts.sort((a, b) => b.price - a.price);
-        break;
-      case 'rating':
-        sortedProducts.sort((a, b) => b.rating - a.rating);
-        break;
-      default:
-        // featured - no sorting needed
-        break;
-    }
-    
-    setFilteredProducts(sortedProducts);
-  };
-
-  // Handle search
-  const handleSearch = (e) => {
-    const query = e.target.value.toLowerCase();
-    setSearchQuery(query);
-    
-    if (query === '') {
-      if (selectedCategory === 'all') {
-        setFilteredProducts(products);
-      } else {
-        setFilteredProducts(products.filter(product => product.category === selectedCategory));
+  // Initialize products when component mounts
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const productsModule = await import('../../client/data/products');
+        const products = productsModule.default || productsModule.products || productsModule;
+        
+        console.log('Raw products data:', products);
+        setRawProducts(products);
+        
+        const flattenedProducts = flattenProducts(products);
+        
+        if (Array.isArray(flattenedProducts) && flattenedProducts.length > 0) {
+          setSampleProducts(flattenedProducts);
+          setFilteredProducts(flattenedProducts);
+          console.log(`Loaded ${flattenedProducts.length} products`);
+          
+          // Check if all keys are unique
+          const keys = flattenedProducts.map(p => p.uniqueKey);
+          const uniqueKeys = new Set(keys);
+          console.log('All keys are unique:', keys.length === uniqueKeys.size);
+        } else {
+          setSampleProducts([]);
+          setFilteredProducts([]);
+          console.log('No products found');
+        }
+      } catch (e) {
+        console.error("Error importing products:", e);
+        setSampleProducts([]);
+        setFilteredProducts([]);
+      } finally {
+        setLoading(false);
       }
-    } else {
-      setFilteredProducts(
-        products.filter(product => 
-          (product.title && product.title.toLowerCase().includes(query)) ||
-          product.category.toLowerCase().includes(query) ||
-          (product.description && product.description.toLowerCase().includes(query))
-        )
-      );
+    };
+    
+    loadProducts();
+  }, []);
+
+  // Apply filters whenever category or filters change
+  useEffect(() => {
+    if (sampleProducts.length === 0) return;
+
+    let result = [...sampleProducts];
+    
+    console.log('Applying filters:', { selectedCategory, filters, productCount: result.length });
+
+    // Filter by main category if not 'All'
+    if (selectedCategory !== 'All') {
+      // Special handling for Fashion category
+      if (selectedCategory === 'Fashion') {
+        result = result.filter(product => 
+          ['Clothing', 'Footwear', 'Accessories'].includes(product.category)
+        );
+      } else {
+        result = result.filter(product => product.category === selectedCategory);
+      }
+      console.log(`After category filter (${selectedCategory}):`, result.length);
     }
+    
+    // Apply all active filters
+    Object.entries(filters).forEach(([filterType, filterValue]) => {
+      if (filterValue) {
+        const previousCount = result.length;
+        result = result.filter(product => {
+          const productValue = product[filterType];
+          
+          // Skip if product doesn't have this field
+          if (productValue === undefined || productValue === null) {
+            return false;
+          }
+          
+          // Handle different data types
+          if (Array.isArray(productValue)) {
+            return productValue.some(item => 
+              item.toLowerCase() === filterValue.toLowerCase()
+            );
+          }
+          if (typeof productValue === 'string') {
+            return productValue.toLowerCase() === filterValue.toLowerCase();
+          }
+          return productValue === filterValue;
+        });
+        console.log(`After ${filterType}=${filterValue} filter:`, previousCount, '->', result.length);
+      }
+    });
+    
+    setFilteredProducts(result);
+    setAnimationReady(false);
+    setTimeout(() => setAnimationReady(true), 10);
+  }, [selectedCategory, filters, sampleProducts]);
+
+  // Handle category selection
+  const handleCategorySelect = (category) => {
+    setSelectedCategory(category);
+    setFilters({});
   };
+
+  // Handle filter changes
+  const handleFilterChange = (filterType, value) => {
+    setFilters(prev => {
+      const newFilters = { ...prev };
+      
+      if (newFilters[filterType] === value) {
+        delete newFilters[filterType];
+      } else {
+        newFilters[filterType] = value;
+      }
+      
+      console.log('Updated filters:', newFilters);
+      return newFilters;
+    });
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({});
+    setSelectedCategory('All');
+  };
+
+  // Run animation when products are updated
+  useEffect(() => {
+    if (animationReady && filteredProducts.length > 0) {
+      const cards = document.querySelectorAll('.product-card');
+      if (cards.length > 0) {
+        gsap.fromTo(".product-card", 
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.5, stagger: 0.1 }
+        );
+      }
+    }
+  }, [filteredProducts, animationReady]);
+
+  // Get available filter options for current category
+  const getCurrentFilterOptions = () => {
+    if (selectedCategory === 'All') {
+      return filterOptions.All;
+    }
+    return filterOptions[selectedCategory] || {};
+  };
+
+  // Debug function to log product data
+  const debugProducts = () => {
+    console.log('Raw products:', rawProducts);
+    console.log('Sample products (first 3):', sampleProducts.slice(0, 3));
+    console.log('Filtered products (first 3):', filteredProducts.slice(0, 3));
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading products...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans">
-      {/* Header */}
-      <header ref={headerRef} className="bg-white shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center">
-          <div className="flex items-center mb-4 md:mb-0">
-            <h1 className="text-2xl font-bold text-blue-600">ShopEasy</h1>
-          </div>
-          
-          <div className="w-full md:w-1/3 mb-4 md:mb-0">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search products..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                value={searchQuery}
-                onChange={handleSearch}
-              />
-              <button className="absolute right-3 top-2.5 text-gray-400">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <button className="text-gray-600 hover:text-blue-600">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-            </button>
-            <button className="text-gray-600 hover:text-blue-600 relative">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
-            </button>
-            <button className="text-gray-600 hover:text-blue-600">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </button>
-          </div>
+    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">Product Finder</h1>
+        
+        {/* Debug button - remove in production */}
+        <div className="mb-4 text-center">
+          <button 
+            onClick={debugProducts}
+            className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm"
+          >
+            Debug Products
+          </button>
         </div>
-      </header>
-
-      {/* Hero Section */}
-      <section className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-16 md:py-24">
-        <div className="container mx-auto px-4">
-          <div ref={heroRef} className="max-w-2xl text-center mx-auto">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">Summer Sale Up To 50% Off</h1>
-            <p className="text-xl mb-8 opacity-90">Discover the latest trends and get the best deals on thousands of products</p>
-            <button className="bg-white text-blue-600 font-semibold px-6 py-3 rounded-lg hover:bg-gray-100 transition-colors shadow-lg">
-              Shop Now
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <main className="container mx-auto py-8 px-4">
-        {/* Categories Section */}
-        <section className="categories-section mb-12">
-          <div className="flex flex-col md:flex-row justify-between items-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4 md:mb-0">Shop by Category</h2>
-            <div className="flex items-center space-x-2">
-              <span className="text-gray-600">Sort by:</span>
-              <select 
-                value={sortBy}
-                onChange={handleSortChange}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="featured">Featured</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-                <option value="rating">Top Rated</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap justify-center gap-4 mb-12">
-            {categories.map((category, index) => (
+        
+        {/* Category selector */}
+        <div className="mb-8 overflow-x-auto">
+          <div className="flex space-x-4 pb-2">
+            {['All', 'Sunglasses', 'Fashion', 'Footwear'].map(category => (
               <button
                 key={category}
-                ref={el => categoryRefs.current[index] = el}
-                className={`px-4 py-2 rounded-full transition-colors ${
-                  selectedCategory === category
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                onClick={() => handleCategorySelect(category)}
+                className={`px-6 py-3 rounded-full font-medium whitespace-nowrap transition-all duration-300 ${
+                  selectedCategory === category 
+                    ? 'bg-blue-600 text-white shadow-lg' 
+                    : 'bg-white text-gray-700 hover:bg-gray-100 shadow-md'
                 }`}
-                onClick={() => handleCategoryFilter(category)}
               >
-                {category.charAt(0).toUpperCase() + category.slice(1)}
+                {category}
               </button>
             ))}
           </div>
-        </section>
-
-        {/* Products Section */}
-        <section>
-          <h2 ref={sectionTitleRef} className="text-2xl font-bold text-gray-800 mb-8">
-            {selectedCategory === 'all' ? 'All Products' : `${selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}`}
-            <span className="text-gray-500 text-lg font-normal ml-2">({filteredProducts.length} products)</span>
-          </h2>
-
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {[...Array(8)].map((_, index) => (
-                <div key={`loading-${index}`} className="bg-white rounded-xl shadow-md overflow-hidden animate-pulse">
-                  <div className="h-48 bg-gray-300"></div>
-                  <div className="p-4">
-                    <div className="h-4 bg-gray-300 rounded mb-2"></div>
-                    <div className="h-4 bg-gray-300 rounded w-3/4 mb-4"></div>
-                    <div className="h-4 bg-gray-300 rounded w-1/2"></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="text-center py-12">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">No products found</h3>
-              <p className="text-gray-500">Try adjusting your search or filter criteria</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {filteredProducts.map((product, index) => (
-                <div 
-                  key={product.uniqueId} // Use the uniqueId instead of id
-                  ref={el => productRefs.current[index] = el}
-                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+        </div>
+        
+        {/* Filter toggle for mobile */}
+        <div className="lg:hidden mb-4">
+          <button
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            className="w-full flex justify-between items-center px-4 py-3 bg-white rounded-lg shadow-md"
+          >
+            <span className="font-medium">Filters</span>
+            <svg 
+              className={`w-5 h-5 transition-transform ${isFilterOpen ? 'transform rotate-180' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+        
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Filter sidebar */}
+          <div className={`lg:w-1/4 bg-white rounded-xl shadow-md p-6 h-fit lg:sticky lg:top-4 ${
+            isFilterOpen ? 'block' : 'hidden lg:block'
+          }`}>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-semibold text-gray-800">Filters</h2>
+              {Object.keys(filters).length > 0 && (
+                <button 
+                  onClick={clearFilters}
+                  className="text-sm text-blue-600 hover:text-blue-800"
                 >
-                  <div className="relative">
-                    <div className="h-48 overflow-hidden">
-                      <img 
-                        src={product.image} 
-                        alt={product.title}
-                        className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-300"
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = `https://picsum.photos/seed/${product.uniqueId}/300/200.jpg`;
-                        }}
-                      />
-                    </div>
-                    {product.discount && (
-                      <span className="absolute top-3 left-3 bg-red-500 text-white text-xs font-semibold px-2 py-1 rounded">
-                        {product.discount}% OFF
-                      </span>
-                    )}
-                    <button className="absolute top-3 right-3 bg-white text-gray-500 p-2 rounded-full hover:text-blue-600 transition-colors">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold text-gray-800 mb-1 line-clamp-1">{product.title}</h3>
-                    <div className="flex items-center mb-2">
-                      {[...Array(5)].map((_, i) => (
-                        <svg 
-                          key={i}
-                          xmlns="http://www.w3.org/2000/svg" 
-                          className={`h-4 w-4 ${i < Math.floor(product.rating) ? 'text-yellow-400' : 'text-gray-300'}`}
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                      ))}
-                      <span className="text-xs text-gray-500 ml-1">({product.reviewCount})</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        {/* Add check for price before calling toFixed */}
-                        <p className="text-lg font-bold text-gray-800">
-                          ${typeof product.price === 'number' ? product.price.toFixed(2) : '0.00'}
-                        </p>
-                        {product.originalPrice && (
-                          <p className="text-xs text-gray-500 line-through">
-                            ${typeof product.originalPrice === 'number' ? product.originalPrice.toFixed(2) : '0.00'}
-                          </p>
-                        )}
-                      </div>
-                      <button className="bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        Add to Cart
+                  Clear all
+                </button>
+              )}
+            </div>
+            
+            {Object.keys(getCurrentFilterOptions()).length > 0 ? (
+              Object.entries(getCurrentFilterOptions()).map(([filterType, options]) => (
+                <div key={filterType} className="mb-6">
+                  <h3 className="font-medium text-gray-700 mb-3 capitalize">
+                    {filterType.replace(/([A-Z])/g, ' $1').trim()}
+                  </h3>
+                  <div className="space-y-2">
+                    {options.map(option => (
+                      <button
+                        key={option}
+                        onClick={() => handleFilterChange(filterType, option)}
+                        className={`block w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 ${
+                          filters[filterType] === option 
+                            ? 'bg-blue-100 text-blue-700 font-medium' 
+                            : 'text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        {option}
                       </button>
-                    </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              ))
+            ) : (
+              <p className="text-gray-500 text-sm">No filters available for this category</p>
+            )}
+            
+            {/* Active filters display */}
+            {Object.keys(filters).length > 0 && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h3 className="font-medium text-gray-700 mb-3">Active Filters</h3>
+                <div className="flex flex-wrap gap-2">
+                  {Object.entries(filters).map(([filterType, value]) => (
+                    <span
+                      key={`${filterType}-${value}`}
+                      className="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full flex items-center"
+                    >
+                      {value}
+                      <button
+                        onClick={() => handleFilterChange(filterType, value)}
+                        className="ml-1 text-blue-600 hover:text-blue-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {/* Product grid */}
+          <div className="lg:w-3/4">
+            {/* Results info */}
+            <div className="flex justify-between items-center mb-6">
+              <p className="text-gray-600">
+                Showing <span className="font-semibold">{filteredProducts.length}</span> products
+                {Object.keys(filters).length > 0 && ' with selected filters'}
+              </p>
+              {Object.keys(filters).length > 0 && (
+                <button
+                  onClick={clearFilters}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
-          )}
-        </section>
-      </main>
-
-      {/* Newsletter Section */}
-      <section className="bg-gray-100 py-16 mt-16">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">Subscribe to Our Newsletter</h2>
-          <p className="text-gray-600 max-w-xl mx-auto mb-6">Get the latest updates on new products, special offers, and exclusive discounts.</p>
-          <div className="flex flex-col sm:flex-row max-w-md mx-auto sm:max-w-xl">
-            <input 
-              type="email" 
-              placeholder="Your email address" 
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 mb-3 sm:mb-0 sm:mr-2"
-            />
-            <button className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
-              Subscribe
-            </button>
+            
+            {/* Products grid */}
+            {filteredProducts.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredProducts.map(product => (
+                  <ProductCard 
+                    key={product.uniqueKey} 
+                    product={product} 
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl shadow-md p-8 text-center">
+                <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 className="text-lg font-medium text-gray-700 mb-2">No products found</h3>
+                <p className="text-gray-500 mb-4">Try adjusting your filters to find what you're looking for.</p>
+                {Object.keys(filters).length > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Clear all filters
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
-      </section>
+      </div>
     </div>
   );
 };
 
-export default EcommercePage;
+export default ShoP_MainFun;
