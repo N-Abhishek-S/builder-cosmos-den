@@ -1,48 +1,45 @@
+// src/data/productUtils.js
 import { products } from './products';
 
-export const getRecommendedProducts = (analysisResult) => {
+export const getRecommendedProducts = (analysisResult, productData) => {
   const { gender, face_shape, skin_tone } = analysisResult;
   
   if (!gender || !face_shape || !skin_tone) {
-    return getFallbackProducts(gender);
+    return getFallbackProducts(productData, gender);
   }
 
   const genderKey = gender.toLowerCase();
   const faceShape = face_shape.toLowerCase();
   const skinTone = skin_tone.toLowerCase();
 
-  // Get gender-specific products or fallback to unisex
-  const genderProducts = products[genderKey] || products.unisex;
-
+  // Use the passed productData instead of accessing products directly
   return {
-    sunglasses: filterSunglasses(genderProducts.sunglasses || [], faceShape, 4),
-    clothing: filterBySkinTone(genderProducts.clothing || [], skinTone, 4),
-    accessories: filterBySkinTone(genderProducts.accessories || [], skinTone, 4),
-    watches: filterBySkinTone(genderProducts.Watches || [], skinTone, 4),
-    footwear: filterBySkinTone(genderProducts.Footwear || [], skinTone, 4),
-    hairstyles: filterHairstyles(genderProducts.Hairstyle || [], faceShape, 4)
+    sunglasses: filterSunglasses(productData.sunglasses || [], faceShape, 4),
+    clothing: filterBySkinTone(productData.clothing || [], skinTone, 4),
+    accessories: filterBySkinTone(productData.accessories || [], skinTone, 4),
+    watches: filterBySkinTone(productData.watches || [], skinTone, 4),
+    footwear: filterBySkinTone(productData.footwear || [], skinTone, 4),
+    hairstyles: filterHairstyles(productData.hairstyles || [], faceShape, 4)
   };
 };
 
-const filterSunglasses = (sunglasses, faceShape, limit) => {
+function filterSunglasses(sunglasses, faceShape, limit) {
   try {
-    // Handle nested array structure - sunglasses is [[array]]
-    const sunglassesArray = Array.isArray(sunglasses[0]) ? sunglasses[0] : sunglasses;
-    
-    if (!Array.isArray(sunglassesArray)) {
-      console.warn('Sunglasses data is not an array:', sunglassesArray);
+    if (!Array.isArray(sunglasses)) {
+      console.warn('Sunglasses data is not an array:', sunglasses);
       return [];
     }
     
-    const filtered = sunglassesArray
-      .filter(product => 
-        product && 
-        product.faceShapeCompatibility && 
-        Array.isArray(product.faceShapeCompatibility) &&
-        product.faceShapeCompatibility.some(shape => 
-          shape && shape.toLowerCase().includes(faceShape.toLowerCase())
-        )
-      )
+    const filtered = sunglasses
+      .filter(product => {
+        if (!product || !product.faceShapeCompatibility) return false;
+        if (!Array.isArray(product.faceShapeCompatibility)) return false;
+        
+        return product.faceShapeCompatibility.some(shape => {
+          if (!shape) return false;
+          return shape.toLowerCase().includes(faceShape.toLowerCase());
+        });
+      })
       .slice(0, limit);
     
     console.log(`Found ${filtered.length} sunglasses for face shape: ${faceShape}`);
@@ -51,9 +48,9 @@ const filterSunglasses = (sunglasses, faceShape, limit) => {
     console.error('Error filtering sunglasses:', error);
     return [];
   }
-};
+}
 
-const filterBySkinTone = (productArray, skinTone, limit) => {
+function filterBySkinTone(productArray, skinTone, limit) {
   try {
     if (!Array.isArray(productArray)) {
       console.warn('Product data is not an array:', productArray);
@@ -61,14 +58,15 @@ const filterBySkinTone = (productArray, skinTone, limit) => {
     }
     
     const filtered = productArray
-      .filter(product => 
-        product &&
-        product.skinToneCompatibility && 
-        Array.isArray(product.skinToneCompatibility) &&
-        product.skinToneCompatibility.some(tone => 
-          tone && tone.toLowerCase().includes(skinTone.toLowerCase())
-        )
-      )
+      .filter(product => {
+        if (!product || !product.skinToneCompatibility) return false;
+        if (!Array.isArray(product.skinToneCompatibility)) return false;
+        
+        return product.skinToneCompatibility.some(tone => {
+          if (!tone) return false;
+          return tone.toLowerCase().includes(skinTone.toLowerCase());
+        });
+      })
       .slice(0, limit);
     
     console.log(`Found ${filtered.length} products for skin tone: ${skinTone}`);
@@ -77,9 +75,9 @@ const filterBySkinTone = (productArray, skinTone, limit) => {
     console.error('Error filtering products by skin tone:', error);
     return [];
   }
-};
+}
 
-const filterHairstyles = (hairstyles, faceShape, limit) => {
+function filterHairstyles(hairstyles, faceShape, limit) {
   try {
     if (!Array.isArray(hairstyles)) {
       console.warn('Hairstyles data is not an array:', hairstyles);
@@ -87,17 +85,19 @@ const filterHairstyles = (hairstyles, faceShape, limit) => {
     }
     
     const filtered = hairstyles
-      .filter(style => 
-        style &&
-        style.faceShapeCompatibility && 
-        (Array.isArray(style.faceShapeCompatibility) 
-          ? style.faceShapeCompatibility.some(shape => 
-              shape && shape.toLowerCase().includes(faceShape.toLowerCase())
-            )
-          : typeof style.faceShapeCompatibility === 'string' && 
-            style.faceShapeCompatibility.toLowerCase().includes(faceShape.toLowerCase())
-        )
-      )
+      .filter(style => {
+        if (!style || !style.faceShapeCompatibility) return false;
+        
+        if (Array.isArray(style.faceShapeCompatibility)) {
+          return style.faceShapeCompatibility.some(shape => {
+            if (!shape) return false;
+            return shape.toLowerCase().includes(faceShape.toLowerCase());
+          });
+        } else if (typeof style.faceShapeCompatibility === 'string') {
+          return style.faceShapeCompatibility.toLowerCase().includes(faceShape.toLowerCase());
+        }
+        return false;
+      })
       .slice(0, limit);
     
     console.log(`Found ${filtered.length} hairstyles for face shape: ${faceShape}`);
@@ -106,32 +106,32 @@ const filterHairstyles = (hairstyles, faceShape, limit) => {
     console.error('Error filtering hairstyles:', error);
     return [];
   }
-};
+}
 
-const getFallbackProducts = (gender) => {
+// Changed from function declaration to export const to make it available for import
+export const getFallbackProducts = (productData, category) => {
   try {
-    const genderKey = (gender || 'unisex').toLowerCase();
-    const genderProducts = products[genderKey] || products.unisex;
+    // If category is provided, return fallback for that specific category
+    if (category && productData[category]) {
+      console.log(`Using fallback products for ${category}:`, productData[category].slice(0, 4));
+      return productData[category].slice(0, 4);
+    }
     
-    // Handle nested sunglasses structure
-    const sunglassesArray = genderProducts.sunglasses && Array.isArray(genderProducts.sunglasses[0]) 
-      ? genderProducts.sunglasses[0] 
-      : genderProducts.sunglasses || [];
-    
+    // If no category is provided, return fallbacks for all categories
     const fallbackProducts = {
-      sunglasses: (sunglassesArray || []).slice(0, 4),
-      clothing: (genderProducts.clothing || []).slice(0, 4),
-      accessories: (genderProducts.accessories || []).slice(0, 4),
-      watches: (genderProducts.Watches || []).slice(0, 4),
-      footwear: (genderProducts.Footwear || []).slice(0, 4),
-      hairstyles: (genderProducts.Hairstyle || []).slice(0, 4)
+      sunglasses: (productData.sunglasses || []).slice(0, 4),
+      clothing: (productData.clothing || []).slice(0, 4),
+      accessories: (productData.accessories || []).slice(0, 4),
+      watches: (productData.watches || []).slice(0, 4),
+      footwear: (productData.footwear || []).slice(0, 4),
+      hairstyles: (productData.hairstyles || []).slice(0, 4)
     };
     
     console.log('Using fallback products:', fallbackProducts);
     return fallbackProducts;
   } catch (error) {
     console.error('Error getting fallback products:', error);
-    return {
+    return category ? [] : {
       sunglasses: [],
       clothing: [],
       accessories: [],
@@ -142,7 +142,6 @@ const getFallbackProducts = (gender) => {
   }
 };
 
-// Helper function to get color value for display
 export const getColorValue = (colorName) => {
   const colorMap = {
     'navy': '#1e3a8a',

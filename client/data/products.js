@@ -98,7 +98,8 @@ export const products = {
   },
   {
     "id": 11,
-    "name": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRmyhWn_FIyKzQW7rPKLIJPzzG3bESFcHMeqg&s",
+    "name": "Deep Plum Dress Shirt",
+    "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQXf1e1cYHkXoG3jv0Yk1b2b6mM1Fqz1n4E7A&s",
     "price": 2299,
     "category": "Formal",
     "skinToneCompatibility": ["Cool", "Fair", "Neutral"],
@@ -544,8 +545,35 @@ export const products = {
     "category": "Traditional",
     "skinToneCompatibility": ["Warm", "Olive", "Medium"],
     "description": "Earthy green enhances warm undertones and complements olive and medium complexions."
-  }
-],
+  },
+  {   "id": 62,
+        "name": "Denim Jeans",
+        "image": "https://images.unsplash.com/photo-1542271021-7eeb2f5dfb58?w=500&auto=format&fit=crop",
+        "price": 2499,
+        "category": "Casual",
+        "skinToneCompatibility": ["Fair", "Medium", "Dark"],
+        "description": "Versatile denim jeans for everyday wear."
+      },
+      {
+        "id": 63,
+        "name": "Casual T-Shirt",
+        "image": "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=500&auto=format&fit=crop",
+        "price": 999,
+        "category": "Casual",
+        "skinToneCompatibility": ["Fair", "Medium", "Olive"],
+        "description": "Comfortable casual t-shirt for relaxed wear."
+      },
+      {
+        "id": 64,
+        "name": "Summer Dress",
+        "image": "https://images.unsplash.com/photo-1595341888016-a392ef81b7de?w=500&auto=format&fit=crop",
+        "price": 2999,
+        "category": "Casual",
+        "skinToneCompatibility": ["Fair", "Medium", "Olive"],
+        "description": "Light summer dress perfect for warm weather."
+      }
+    ],
+
 Watches : [
   {
     "id": 1,
@@ -1398,7 +1426,7 @@ accessories : [
   {
     "id": 35,
     "name": "Charcoal Cardholder",
-    "image": "hhttps://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ8WtNnFZ8NujbTqWoH9IePsjLKMq3U5ChHeA&s",
+    "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ8WtNnFZ8NujbTqWoH9IePsjLKMq3U5ChHeA&s",
     "price": 1399,
     "category": "Belts & Wallets",
     "skinToneCompatibility": ["Medium", "Dark", "Cool"],
@@ -3775,7 +3803,7 @@ Hairstyle : [
   /*{
     "id": 51,
     "name": "Burgundy Dress",
-    "image": "https://example.com/clothes/burgundy-casual-dress.jpg",
+    "image": "https://.com/clothes/burgundy-casual-dress.jpg",
     "price": 2799,
     "category": "Casual",
     "skinToneCompatibility": ["Fair", "Cool", "Neutral"],
@@ -4324,7 +4352,7 @@ Hairstyle : [
     "skinToneCompatibility": ["Dark", "Warm", "Neutral"],
     "description": "Light beige tones balance darker and warm skin tones for summer elegance."
   },
-  {
+  /*{
     "id": 31,
     "name": "Silver Sequin Scarf",
     "image": "https://example.com/accessories/silver-sequin.jpg",
@@ -4485,7 +4513,7 @@ Hairstyle : [
     "category": "Hair Accessories",
     "skinToneCompatibility": ["Warm", "Olive", "Medium"],
     "description": "Rich emerald enhances warm undertones and complements olive and medium complexions."
-  }
+  }*/
 ] ,
 
 Watches : [
@@ -4705,15 +4733,7 @@ Watches : [
     "skinToneCompatibility": ["Fair", "Cool", "Neutral"],
     "description": "Elegant silver moonphase brightens fair skin and complements cool undertones."
   },
-  {
-    "id": 25,
-    "name": "Two-Tone Bracelet Watch",
-    "image": "https://example.com/watches/two-tone-bracelet.jpghttps://i5.walmartimages.com/seo/Relic-by-Fossil-Women-s-Queen-s-Court-Two-Tone-Bracelet-Watch-ZR12652W_3177e266-60e4-4796-887d-b8ecf1a78db5.dd778fe0f4b3d365524333f40f07498c.jpeg",
-    "price": 4999,
-    "category": "Formal",
-    "skinToneCompatibility": ["Medium", "Neutral", "Olive"],
-    "description": "Classic two-tone bracelet complements medium and olive skin tones with neutral undertones."
-  },
+ 
   {
     "id": 26,
     "name": "Black Ceramic Rose Gold Watch",
@@ -4849,7 +4869,7 @@ Watches : [
     "skinToneCompatibility": ["Fair", "Cool", "Neutral"],
     "description": "Rich burgundy leather adds warmth to fair complexions and complements cool undertones."
   },
-  {
+  /*{
     "id": 41,
     "name": "Rose Gold Silicone Watch",
     "image": "https://example.com/watches/rosegold-silicone.jpg",
@@ -5028,7 +5048,7 @@ Watches : [
     "category": "Casual",
     "skinToneCompatibility": ["Cool", "Fair", "Olive"],
     "description": "Vibrant teal silicone brightens fair skin and harmonizes with cool and olive undertones."
-  }
+  }*/
 ],
 
 
@@ -5249,7 +5269,7 @@ Watches : [
     "skinToneCompatibility": ["Fair", "Cool", "Neutral"],
     "description": "Elegant silver moonphase brightens fair skin and complements cool undertones."
   },
-  {
+ /* {
     "id": 25,
     "name": "Two-Tone Bracelet Watch",
     "image": "https://example.com/watches/two-tone-bracelet.jpghttps://i5.walmartimages.com/seo/Relic-by-Fossil-Women-s-Queen-s-Court-Two-Tone-Bracelet-Watch-ZR12652W_3177e266-60e4-4796-887d-b8ecf1a78db5.dd778fe0f4b3d365524333f40f07498c.jpeg",
@@ -5257,7 +5277,7 @@ Watches : [
     "category": "Formal",
     "skinToneCompatibility": ["Medium", "Neutral", "Olive"],
     "description": "Classic two-tone bracelet complements medium and olive skin tones with neutral undertones."
-  },
+  },*/
   {
     "id": 26,
     "name": "Black Ceramic Rose Gold Watch",
@@ -5393,7 +5413,7 @@ Watches : [
     "skinToneCompatibility": ["Fair", "Cool", "Neutral"],
     "description": "Rich burgundy leather adds warmth to fair complexions and complements cool undertones."
   },
-  {
+ /* {
     "id": 41,
     "name": "Rose Gold Silicone Watch",
     "image": "https://example.com/watches/rosegold-silicone.jpg",
@@ -5465,7 +5485,7 @@ Watches : [
     "skinToneCompatibility": ["Warm", "Medium", "Olive"],
     "description": "Warm tan leather enhances medium and olive skin tones with warm undertones."
   },
-  {
+  /*{
     "id": 49,
     "name": "Rose Gold Mesh Watch",
     "image": "https://example.com/watches/rosegold-mesh-casual.jpg",
@@ -5572,7 +5592,7 @@ Watches : [
     "category": "Casual",
     "skinToneCompatibility": ["Cool", "Fair", "Olive"],
     "description": "Vibrant teal silicone brightens fair skin and harmonizes with cool and olive undertones."
-  }
+  }*/
 ],
 
 

@@ -20,6 +20,12 @@ const filterOptions = {
     style: ["Formal", "Informal", "Casual", "Traditional", "Bohemian", "Streetwear"],
     occasion: ["Work", "Party", "Wedding", "Beach", "Everyday"],
     season: ["Summer", "Winter", "Spring", "Fall", "All Season"]
+  },
+  All: {
+    // Add common filters that work across all categories
+    gender: ["Male", "Female", "Unisex"],
+    size: ["XS", "Small", "Medium", "Large", "XL"],
+    // Add more common filters as needed
   }
 };
 
@@ -55,7 +61,8 @@ const ShoP_MainFun = () => {
               ...product,
               uniqueKey: `male-${category}-${product.id}`,
               gender: 'male',
-              productCategory: category
+              productCategory: category,
+              category: category.charAt(0).toUpperCase() + category.slice(1) // Capitalize first letter
             });
           });
         }
@@ -71,7 +78,8 @@ const ShoP_MainFun = () => {
               ...product,
               uniqueKey: `female-${category}-${product.id}`,
               gender: 'female',
-              productCategory: category
+              productCategory: category,
+              category: category.charAt(0).toUpperCase() + category.slice(1) // Capitalize first letter
             });
           });
         }
@@ -87,7 +95,8 @@ const ShoP_MainFun = () => {
               ...product,
               uniqueKey: `unisex-${category}-${product.id}`,
               gender: 'unisex',
-              productCategory: category
+              productCategory: category,
+              category: category.charAt(0).toUpperCase() + category.slice(1) // Capitalize first letter
             });
           });
         }
@@ -200,14 +209,36 @@ const ShoP_MainFun = () => {
     // Apply attribute filters
     Object.entries(filters).forEach(([key, value]) => {
       result = result.filter(product => {
+        // Special handling for gender filter - check both gender property and productCategory
+        if (key === 'gender') {
+          // Check if product matches the gender filter
+          if (product.gender && product.gender.toLowerCase() === value.toLowerCase()) {
+            return true;
+          }
+          // For Sunglasses and Fashion categories, also check if they're unisex
+          if ((product.category === 'Sunglasses' || product.category === 'Fashion') && value === 'Unisex') {
+            return true;
+          }
+          return false;
+        }
+        
         // Handle array values like multiple styles or occasions
         if (Array.isArray(product[key])) {
-          return product[key].includes(value);
+          return product[key].some(item => 
+            typeof item === 'string' && item.toLowerCase() === value.toLowerCase()
+          );
         }
+        
         // Handle case-insensitive matching for string properties
         if (typeof product[key] === 'string') {
           return product[key].toLowerCase() === value.toLowerCase();
         }
+        
+        // Check if the property exists in nested objects
+        if (product.attributes && product.attributes[key]) {
+          return product.attributes[key].toLowerCase() === value.toLowerCase();
+        }
+        
         return product[key] === value;
       });
     });
@@ -380,8 +411,28 @@ const ShoP_MainFun = () => {
                   </div>
                 </div>
               ))
-            ) : selectedCategory === 'All' ? (
-              <p className="text-gray-500 text-sm">Select a category to see filters</p>
+            ) : selectedCategory === 'All' && filterOptions.All ? (
+              // Show common filters when "All" category is selected
+              Object.entries(filterOptions.All).map(([filterType, options]) => (
+                <div key={filterType} className="mb-6">
+                  <h3 className="font-medium text-gray-700 mb-3 capitalize">
+                    {filterType.replace(/([A-Z])/g, ' $1').trim()}
+                  </h3>
+                  <div className="space-y-2">
+                    {options.map(option => (
+                      <button
+                        key={option}
+                        onClick={() => handleFilterChange(filterType, option)}
+                        className={`block w-full text-left px-3 py-2 rounded-lg text-sm transition-all duration-200 ${filters[filterType] === option 
+                          ? 'bg-blue-100 text-blue-700 font-medium' 
+                          : 'text-gray-600 hover:bg-gray-100'}`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))
             ) : (
               <p className="text-gray-500 text-sm">No filters available for this category</p>
             )}
